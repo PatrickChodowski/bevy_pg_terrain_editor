@@ -1,0 +1,73 @@
+cargo-features = ["codegen-backend"]
+
+[package]
+name = "bevy_pg_terrain_editor"
+version = "2.0.0"
+authors = ["Patrick Chodowski <chodowski.patrick@gmail.com>"]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "Second approach to terrain editor"
+repository = "https://github.com/PatrickChodowski/MTBTerrainGen/"
+keywords = ["gamedev", "perlin noise", "bevy", "terrain generation"]
+categories = ["game-engines", "terrain-generation"]
+resolver = "2"
+
+[dependencies]
+bevy = { version = "0.17", default-features = false, features = [
+    "animation",
+    "bevy_asset",
+    "bevy_color",
+    "bevy_core_pipeline",
+    "bevy_gilrs",
+    "bevy_gizmos",
+    "bevy_gltf",
+    "bevy_pbr",
+    "bevy_picking",
+    "bevy_render",
+    "bevy_scene",
+    "bevy_sprite",
+    "bevy_state",
+    "bevy_text",
+    "bevy_ui",
+    "bevy_ui_render",
+    "bevy_ui_picking_backend",
+    "bevy_mesh_picking_backend", # For Editor Mode only
+    "bevy_window",
+    "bevy_winit",
+    "custom_cursor",
+    "default_font",
+    "hdr",
+    "multi_threaded",
+    "png",
+    "smaa_luts",
+    "sysinfo_plugin",
+    "tonemapping_luts",
+    "webgl2",
+    "x11",
+    "zstd_rust",
+    "bevy_post_process",
+    "debug", # after compiling?
+    "reflect_auto_register",
+    # "hotpatching",
+    "experimental_bevy_feathers"
+    # "bevy_input_focus",
+    # "experimental_bevy_ui_widgets"
+] }
+
+bevy_common_assets = {  version ="0.14.0", features = ["toml"]}
+triangulate = "0.2.0"
+libm = "0.2.7"
+serde = "1.0"
+serde_json = "1.0"
+strsim = "0.10.0"
+noise = "0.9.0"
+rand="0.9.0"
+pennereq = "0.3.1"
+
+[profile.dev]
+opt-level = 1
+
+
+[target.x86_64-unknown-linux-gnu]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=/usr/bin/mold"]
