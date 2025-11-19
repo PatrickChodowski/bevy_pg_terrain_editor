@@ -5,8 +5,10 @@ use bevy::picking::hover::HoverMap;
 use bevy::window::PrimaryWindow;
 use bevy_enhanced_input::prelude::*;
 use bevy_pg_editor_tools::prelude::{WorldPos, PGEditorToolsPlugin, PGEditorBrushSelectPlugin, BrushSelectController, BrushSettings, brush_select_controller};
-use bevy_pg_terrain_editor_tools::prelude::{HeightBrushType, PlaneToEdit, SpawnVertices, TerrainColorBrush, TerrainEditorVertexPlugin, 
-    TerrainHeightBrush, TerrainVertexController, plane_mesh, terrain_vertex_controller
+use bevy_pg_terrain_editor_tools::noises::Noise;
+use bevy_pg_terrain_editor_tools::prelude::{HeightBrushType, PlaneToEdit, SpawnVertices, 
+    TerrainColorBrush, TerrainEditorVertexPlugin, TerrainHeightBrush, 
+    TerrainVertexController, plane_mesh, terrain_vertex_controller
 };
 
 fn main() {
@@ -34,6 +36,7 @@ fn init(
     brushsettings.radius = 1.0;
     brushsettings.typ = Box::new(TerrainHeightBrush{typ: HeightBrushType::Value(1.0)});
     brushsettings.typ = Box::new(TerrainColorBrush{color: [0.5, 0.5, 0.8, 1.0]});
+    brushsettings.typ = Box::new(TerrainHeightBrush{typ: HeightBrushType::Noise((vec![Noise::new()], 1.0))});
 
     commands.spawn((
         brush_select_controller(),
@@ -42,7 +45,7 @@ fn init(
 
     let plane_entity = commands.spawn(
         (
-            plane_mesh(10.0, 10.0, 5, &mut meshes),
+            plane_mesh(40.0, 40.0, 12, &mut meshes),
             MeshMaterial3d(materials.add(StandardMaterial::from_color(Color::WHITE))),
             Transform::from_translation(Vec3::new(0.0, 0.0, 0.0))
         )
@@ -51,7 +54,7 @@ fn init(
     commands.spawn(
         (
             Camera3d::default(),
-            Transform::from_xyz(5.0, 10.0, 5.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y)
+            Transform::from_xyz(25.0, 50.0, 25.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y)
         )
     );
 

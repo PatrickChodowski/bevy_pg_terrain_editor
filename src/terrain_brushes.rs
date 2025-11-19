@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_pg_editor_tools::prelude::BrushType;
 use bevy::ecs::system::SystemState;
 
-use crate::prelude::{PlaneVertex, SelectedVertex};
+use crate::prelude::{PlaneVertex, SelectedVertex, Noise};
 
 #[derive(Clone)]
 pub struct Terrace {
@@ -16,12 +16,11 @@ impl Terrace {
     }
 }
 
-
 #[derive(Clone)]
 pub enum HeightBrushType {
     Value(f32),
     Terraces(Vec<Terrace>),
-    Noise
+    Noise((Vec<Noise>, f32))
 }
 
 #[derive(Clone)]
@@ -33,10 +32,10 @@ impl BrushType for TerrainHeightBrush {
     fn apply(&mut self, world: &mut World, loc: Vec3, radius: f32) {
         let mut system_state: SystemState<(
             Commands,
-            Query<(Entity, &mut PlaneVertex, &mut Transform, Option<&SelectedVertex>)>
+            Query<(Entity, &mut PlaneVertex, &mut Transform, &GlobalTransform, Option<&SelectedVertex>)>
         )> = SystemState::new(world);
         let (mut commands, mut plane_vertices) = system_state.get_mut(world);
-        for (vertex_entity, mut plane_vertex, mut vertex_transform, maybe_selected) in plane_vertices.iter_mut(){
+        for (vertex_entity, mut plane_vertex, mut vertex_transform, global_transform, maybe_selected) in plane_vertices.iter_mut(){
             if (vertex_transform.translation.xz().distance(loc.xz()) <= radius + plane_vertex.radius) & maybe_selected.is_none() {
                 commands.entity(vertex_entity).insert(SelectedVertex);
 
@@ -52,8 +51,15 @@ impl BrushType for TerrainHeightBrush {
                             }
                         }
                     }
-                    HeightBrushType::Noise => {
-
+                    HeightBrushType::Noise(noises) => {
+                        let global_loc = global_transform.translation();
+                        let mut combined_noise: f32 = 0.0;
+                        for noise in noises.0.iter(){
+                            let noise_value = noise.apply(global_loc);
+                            combined_noise += noise_value;
+                        }
+                        let new_y: f32 = combined_noise*noises.1;
+                        vertex_transform.translation.y = new_y;
                     }
                 }
 
@@ -61,7 +67,7 @@ impl BrushType for TerrainHeightBrush {
             } else if  (vertex_transform.translation.xz().distance(loc.xz()) <= radius + plane_vertex.radius) & maybe_selected.is_some() {
 
             } else {
-                commands.entity(vertex_entity).remove::<SelectedVertex>();
+                // commands.entity(vertex_entity).remove::<SelectedVertex>();
             }
         }
         system_state.apply(world);
@@ -69,9 +75,6 @@ impl BrushType for TerrainHeightBrush {
     fn done(&mut self, world: &mut World) {}
     fn started(&mut self, world: &mut World) {}
 }
-
-
-
 
 #[derive(Clone)]
 pub struct TerrainColorBrush {
