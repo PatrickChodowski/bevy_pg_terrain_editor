@@ -1,3 +1,4 @@
+use bevy::math::f32;
 use bevy::prelude::*;
 use bevy::mesh::SerializedMesh;
 use bevy::mesh::VertexAttributeValues;
@@ -8,13 +9,17 @@ use bevy_enhanced_input::prelude::Press;
 
 use crate::planes::PlaneToEdit;
 
-pub struct TerrainEditorVertexPlugin;
+pub struct TerrainEditorVertexPlugin {
+    pub vertex_radius: f32
+}
 
 impl Plugin for TerrainEditorVertexPlugin {
     fn build(&self, app: &mut App) {
         app
         .add_systems(Startup, init)
+        .insert_resource(VertexSettings::new(self.vertex_radius))
         .add_observer(init_plane_to_edit)
+        .add_observer(on_remove_plane)
         .add_observer(select_vertex)
         .add_observer(deselect_vertex)
         .add_observer(deselect_all_vertices)
@@ -72,22 +77,33 @@ pub fn terrain_vertex_controller() -> impl Bundle {
 }
 
 #[derive(Resource)]
-struct VertexRefs {
+struct VertexSettings {
+    radius: f32
+}
+impl VertexSettings {
+    fn new(radius: f32) -> Self {
+        VertexSettings{radius}
+    }
+}
+
+#[derive(Resource)]
+pub struct VertexRefs {
     mesh_handle: Mesh3d,
     selected_mat_handle: MeshMaterial3d<StandardMaterial>,
     mat_handle: MeshMaterial3d<StandardMaterial>,
-    radius: f32
+    pub radius: f32
 }
 
 fn init(
     mut commands:   Commands,
     mut meshes:     ResMut<Assets<Mesh>>,
-    mut materials:  ResMut<Assets<StandardMaterial>>
+    mut materials:  ResMut<Assets<StandardMaterial>>,
+    vertex_settings:    Res<VertexSettings>
 ){
     commands.insert_resource(
         VertexRefs{
-            radius: 0.5,
-            mesh_handle: Mesh3d(meshes.add(Sphere{radius: 0.5, ..default()})),
+            radius: vertex_settings.radius,
+            mesh_handle: Mesh3d(meshes.add(Sphere{radius: vertex_settings.radius, ..default()})),
             mat_handle: MeshMaterial3d(materials.add(Color::BLACK.with_alpha(0.85))),
             selected_mat_handle: MeshMaterial3d(materials.add(Color::from(ORANGE_RED).with_alpha(0.85)))
         }
@@ -165,6 +181,19 @@ fn init_plane_to_edit(
     }
     commands.entity(trigger.plane_entity).add_children(&vertices);
 }
+
+fn on_remove_plane(
+    trigger:       On<Remove, PlaneToEdit>,
+    mut commands: Commands,
+    vertex:       Query<(Entity, &PlaneVertex)>
+){
+    for (entity, plane_vertex) in vertex.iter(){
+        if plane_vertex.plane_entity == trigger.entity{
+            commands.entity(entity).despawn();
+        }
+    }
+}
+
 
 fn select_vertex(
     trigger:       On<Add, SelectedVertex>,
