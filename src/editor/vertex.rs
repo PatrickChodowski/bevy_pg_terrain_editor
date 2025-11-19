@@ -1,23 +1,50 @@
 use bevy::prelude::*;
 use bevy::mesh::VertexAttributeValues;
 use bevy::light::{NotShadowCaster, NotShadowReceiver};
-use bevy::color::palettes::css::{BLACK, ORANGE_RED};
+use bevy::color::palettes::css::ORANGE_RED;
+use bevy_enhanced_input::prelude::*;
 
-use crate::editor::brush::BrushStroke;
-use crate::editor::PlaneToEdit;
+
+use crate::editor::planes::PlaneToEdit;
 
 pub struct TerrainEditorVertexPlugin;
 
 impl Plugin for TerrainEditorVertexPlugin {
     fn build(&self, app: &mut App) {
         app
+        .add_systems(Startup, init)
         .add_observer(init_plane_to_edit)
         .add_observer(select_vertex)
         .add_observer(deselect_vertex)
+        .add_observer(deselect_all_vertices)
         .add_systems(Update, vertex_transform_changed)
         ;
     }
 }
+
+#[derive(Resource)]
+struct VertexRefs {
+    mesh_handle: Mesh3d,
+    selected_mat_handle: MeshMaterial3d<StandardMaterial>,
+    mat_handle: MeshMaterial3d<StandardMaterial>,
+    radius: f32
+}
+
+fn init(
+    mut commands:   Commands,
+    mut meshes:     ResMut<Assets<Mesh>>,
+    mut materials:  ResMut<Assets<StandardMaterial>>
+){
+    commands.insert_resource(
+        VertexRefs{
+            radius: 0.5,
+            mesh_handle: Mesh3d(meshes.add(Sphere{radius: 0.5, ..default()})),
+            mat_handle: MeshMaterial3d(materials.add(Color::BLACK.with_alpha(0.85))),
+            selected_mat_handle: MeshMaterial3d(materials.add(Color::from(ORANGE_RED).with_alpha(0.85)))
+        }
+    );
+}
+
 
 #[derive(Component, Copy, Clone)]
 pub struct PlaneVertex {
@@ -49,17 +76,7 @@ impl PlaneVertex {
 pub struct SelectedVertex;
 
 
-
-fn init_plane_to_edit(
-    trigger:          On<Add, PlaneToEdit>,
-    mut commands:     Commands,
-    query:            Query<&Mesh3d, With<PlaneToEdit>>,
-    mut meshes:       ResMut<Assets<Mesh>>,
-    mut materials:    ResMut<Assets<StandardMaterial>>
-){
-
-    let Ok(mesh3d) = query.get(trigger.entity) else {return;};
-    let Some(mesh) = meshes.get(&mesh3d.0) else {return;};
+pub fn extract_mesh_data(mesh: &Mesh) -> (Vec<[f32; 3]>, Vec<[f32; 4]>){
 
     let v_pos: Vec<[f32; 3]> = mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap().as_float3().unwrap().to_vec();
     let mut v_clr: Vec<[f32; 4]> = Vec::new();
@@ -70,57 +87,85 @@ fn init_plane_to_edit(
     } else {
         v_clr = vec![[1.0, 1.0, 1.0, 1.0]; v_pos.len()];
     }
-    let radius: f32 = 1.0;
+
+    return (v_pos, v_clr);
+
+}
+
+#[derive(Event)]
+pub struct SpawnVertices{
+    pub plane_entity: Entity
+}
+
+
+fn init_plane_to_edit(
+    trigger:      On<SpawnVertices>,
+    mut commands: Commands,
+    query:        Query<&Mesh3d, With<PlaneToEdit>>,
+    meshes:       Res<Assets<Mesh>>,
+    vertex_refs:  Res<VertexRefs>
+){
+
+    let Ok(mesh3d) = query.get(trigger.plane_entity) else {return;};
+    let Some(mesh) = meshes.get(&mesh3d.0) else {return;};
+    let (v_pos, v_clr) = extract_mesh_data(mesh);
     let mut vertices: Vec<Entity> = Vec::new();
-    let vertex_mesh = Mesh3d(meshes.add(Sphere{radius, ..default()}));
-    let vertex_mat = MeshMaterial3d(materials.add(Color::BLACK.with_alpha(0.85)));
 
     for (index, pos) in v_pos.iter().enumerate(){
 
         let entity = commands.spawn((
-            vertex_mesh.clone(),
-            vertex_mat.clone(),
+            vertex_refs.mat_handle.clone(),
+            vertex_refs.mesh_handle.clone(),
             NotShadowCaster,
             NotShadowReceiver,
             Transform::from_translation(pos.clone().into()).with_scale(Vec3::splat(1.0)),
-            PlaneVertex::new(index, pos, &v_clr[index], radius, trigger.entity),
+            PlaneVertex::new(index, pos, &v_clr[index], vertex_refs.radius, trigger.plane_entity),
         )).id();
 
         vertices.push(entity);
     }
 
-    commands.entity(trigger.entity).add_children(&vertices);
+    commands.entity(trigger.plane_entity).add_children(&vertices);
 }
 
 
 fn select_vertex(
-    trigger:          On<Add, SelectedVertex>,
-    mut commands:     Commands,
-    mut materials:    ResMut<Assets<StandardMaterial>>,
-    mut vertices:     Query<&mut Transform, With<SelectedVertex>>,
-    stroke:           Single<&BrushStroke>
+    trigger:       On<Add, SelectedVertex>,
+    mut commands:  Commands,
+    vertex_refs:   Res<VertexRefs>,
 ){
-    commands.entity(trigger.entity).insert(MeshMaterial3d(materials.add(Color::from(ORANGE_RED).with_alpha(0.85))));
-    let Ok(mut v_transform) = vertices.get_mut(trigger.entity) else {return;}; 
-    stroke.apply(&mut v_transform);
+    commands.entity(trigger.entity).insert(vertex_refs.selected_mat_handle.clone());
 }
 
 fn deselect_vertex(
-    trigger:          On<Remove, SelectedVertex>,
-    mut commands:     Commands,
-    mut materials:    ResMut<Assets<StandardMaterial>>,
+    trigger:       On<Remove, SelectedVertex>,
+    mut commands:  Commands,
+    vertex_refs:   Res<VertexRefs>,
 ){
-    commands.entity(trigger.entity).insert(MeshMaterial3d(materials.add(Color::from(BLACK).with_alpha(0.85))));
+    commands.entity(trigger.entity).insert(vertex_refs.mat_handle.clone());
 }
 
+fn deselect_all_vertices(
+    _trigger: On<Fire<DeselectAllVertices>>,
+    mut commands: Commands,
+    query:  Query<Entity, With<SelectedVertex>>
+){
+    for entity in query.iter(){
+        commands.entity(entity).remove::<SelectedVertex>();
+    }
+}
+
+#[derive(InputAction)]
+#[action_output(bool)]
+struct DeselectAllVertices;
 
 fn vertex_transform_changed(
     mut vertices:   Query<(&mut PlaneVertex, &Transform), (With<SelectedVertex>, Changed<Transform>)>,
-    plane_mesh3d:     Single<&Mesh3d, With<PlaneToEdit>>,
+    plane_mesh3d:   Single<&Mesh3d, With<PlaneToEdit>>,
     mut meshes:     ResMut<Assets<Mesh>>
 ){
     let Some(plane_mesh) = meshes.get_mut(&plane_mesh3d.0) else {return;};
-    let mut v_pos = plane_mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap().as_float3().unwrap().to_vec();
+    let (mut v_pos, _v_clr) = extract_mesh_data(plane_mesh);
     for (mut plane_vertex, plane_transform) in vertices.iter_mut(){
         plane_vertex.loc = plane_transform.translation.into();
         v_pos[plane_vertex.index] = plane_vertex.loc;

@@ -1,44 +1,99 @@
 
-use std::f32::consts::FRAC_PI_2;
 use bevy::{color::palettes::css::WHITE, prelude::*};
-
-use bevy_pg_terrain_editor::prelude::{PlaneToEdit, BevyPGTerrainEditorPlugin};
-
-// use crate::editor::MTBEditorPlugin;
+use bevy::picking::pointer::PointerId;
+use bevy::picking::hover::HoverMap;
+use bevy::window::PrimaryWindow;
+use bevy_enhanced_input::prelude::*;
+use bevy_pg_editor_tools::prelude::{WorldPos, PGEditorToolsPlugin, PGEditorBrushSelectPlugin, BrushSelectController, BrushSettings, brush_select_controller};
+use bevy_pg_terrain_editor_tools::prelude::TerrainHeightBrush;
+use bevy_pg_terrain_editor_tools::{editor::vertex::SpawnVertices, prelude::{PGTerrainEditorToolsPlugin, PlaneToEdit, plane_mesh}};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight{color: Color::from(WHITE), brightness: 100.0, ..default()})
-        .add_plugins(BevyPGTerrainEditorPlugin)
+        .add_plugins(EnhancedInputPlugin)
+        .add_input_context::<BrushSelectController>()
+        .insert_resource(AmbientLight{color: Color::from(WHITE), brightness: 900.0, ..default()})
+        .add_plugins(PGEditorToolsPlugin)
+        .add_plugins(PGEditorBrushSelectPlugin)
+        .add_plugins(PGTerrainEditorToolsPlugin)
         .add_systems(Startup, init)
+        .add_systems(Update, hover_plane)
         .run();
 }
 
 fn init(
-    mut commands: Commands,
-    mut meshes:   ResMut<Assets<Mesh>>,
-    mut materials:   ResMut<Assets<StandardMaterial>>
+    mut commands:      Commands,
+    mut meshes:        ResMut<Assets<Mesh>>,
+    mut materials:     ResMut<Assets<StandardMaterial>>,
+    mut brushsettings: ResMut<BrushSettings>
 ){
-    let halfs = Vec2::new(10.0, 10.0);
-    commands.spawn(
-        (
-            Mesh3d(meshes.add(Plane3d::new(Vec3::Z, halfs))),
-            MeshMaterial3d(materials.add(StandardMaterial::from_color(Color::WHITE))),
-            Transform::from_translation(Vec3::new(0.0, 0.0, 0.0)).with_scale(Vec3::splat(0.5)).with_rotation(Quat::from_rotation_x(-FRAC_PI_2)),
-            PlaneToEdit{dims: halfs*2.0}
-        )
-    );
 
-    let mut camera_transform = Transform::from_translation(Vec3::new(4.0, 10.0, 4.0));
-    camera_transform.look_at(Vec3::splat(0.0), Vec3::Y);
+    brushsettings.radius = 1.0;
+    brushsettings.typ = Box::new(TerrainHeightBrush{y_change: 1.0});
+
+    commands.spawn(brush_select_controller());
+
+    let plane_entity = commands.spawn(
+        (
+            plane_mesh(10.0, 10.0, 5, &mut meshes),
+            MeshMaterial3d(materials.add(StandardMaterial::from_color(Color::WHITE))),
+            Transform::from_translation(Vec3::new(0.0, 0.0, 0.0))
+        )
+    ).id();
 
     commands.spawn(
         (
             Camera3d::default(),
-            camera_transform
+            Transform::from_xyz(5.0, 10.0, 5.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y)
         )
     );
 
+    commands.trigger(SpawnVertices{plane_entity});
+}
 
+
+
+fn hover_plane(
+    hovermap:           Res<HoverMap>,
+    primary:            Single<&Window, With<PrimaryWindow>>,
+    camera:             Single<(&Camera, &GlobalTransform), With<Camera3d>>,
+    nodes:              Query<Entity, With<Node>>,
+    planes:             Query<(&PlaneToEdit, &Transform)>,
+    mut worldpos:       ResMut<WorldPos>
+) {
+    worldpos.reset();
+    let mut any_ui_hit: Option<Entity> = None;
+    let hit_data = hovermap.0.get(&PointerId::Mouse).unwrap();
+
+    if hit_data.len() > 0 {
+        let hit_entities: Vec<Entity> = hit_data.keys().cloned().collect::<Vec<Entity>>();
+        for entity in hit_entities.iter(){
+            if let Ok(_node_entity) = nodes.get(*entity){
+                any_ui_hit = Some(*entity);
+            }
+        }
+    }
+
+    let (main_camera, camera_transform) = camera.into_inner();
+    let Some(cursor_position) = primary.cursor_position() else {return;};
+
+    if any_ui_hit.is_some(){
+        return;
+    }
+
+    if let Ok(ray) = main_camera.viewport_to_world(camera_transform, cursor_position) {
+        let ray_origin: Vec3A = ray.origin.into();
+        let ray_dir: Vec3A = Vec3A::from(*ray.direction);
+
+        for (plane, plane_transform) in planes.iter(){
+            if let Some(distance) = plane.ray_intersection(plane_transform.translation, plane_transform.scale, ray_origin, ray_dir){
+                if distance > 0.0 {
+                    let position: Vec3 = (ray_origin + ray_dir * distance).into();
+                    worldpos.set(position);
+                    return;
+                }
+            }
+        }
+    }
 }
