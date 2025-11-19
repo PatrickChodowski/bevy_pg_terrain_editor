@@ -5,18 +5,20 @@ use bevy::picking::hover::HoverMap;
 use bevy::window::PrimaryWindow;
 use bevy_enhanced_input::prelude::*;
 use bevy_pg_editor_tools::prelude::{WorldPos, PGEditorToolsPlugin, PGEditorBrushSelectPlugin, BrushSelectController, BrushSettings, brush_select_controller};
-use bevy_pg_terrain_editor_tools::prelude::TerrainHeightBrush;
-use bevy_pg_terrain_editor_tools::{editor::vertex::SpawnVertices, prelude::{PGTerrainEditorToolsPlugin, PlaneToEdit, plane_mesh}};
+use bevy_pg_terrain_editor_tools::prelude::{HeightBrushType, PlaneToEdit, SpawnVertices, TerrainColorBrush, TerrainEditorVertexPlugin, 
+    TerrainHeightBrush, TerrainVertexController, plane_mesh, terrain_vertex_controller
+};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(EnhancedInputPlugin)
         .add_input_context::<BrushSelectController>()
+        .add_input_context::<TerrainVertexController>()
         .insert_resource(AmbientLight{color: Color::from(WHITE), brightness: 900.0, ..default()})
+        .add_plugins(TerrainEditorVertexPlugin)
         .add_plugins(PGEditorToolsPlugin)
         .add_plugins(PGEditorBrushSelectPlugin)
-        .add_plugins(PGTerrainEditorToolsPlugin)
         .add_systems(Startup, init)
         .add_systems(Update, hover_plane)
         .run();
@@ -30,9 +32,13 @@ fn init(
 ){
 
     brushsettings.radius = 1.0;
-    brushsettings.typ = Box::new(TerrainHeightBrush{y_change: 1.0});
+    brushsettings.typ = Box::new(TerrainHeightBrush{typ: HeightBrushType::Value(1.0)});
+    brushsettings.typ = Box::new(TerrainColorBrush{color: [0.5, 0.5, 0.8, 1.0]});
 
-    commands.spawn(brush_select_controller());
+    commands.spawn((
+        brush_select_controller(),
+        terrain_vertex_controller()
+    ));
 
     let plane_entity = commands.spawn(
         (

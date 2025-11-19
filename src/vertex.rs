@@ -3,9 +3,9 @@ use bevy::mesh::VertexAttributeValues;
 use bevy::light::{NotShadowCaster, NotShadowReceiver};
 use bevy::color::palettes::css::ORANGE_RED;
 use bevy_enhanced_input::prelude::*;
+use bevy_enhanced_input::prelude::Press;
 
-
-use crate::editor::planes::PlaneToEdit;
+use crate::planes::PlaneToEdit;
 
 pub struct TerrainEditorVertexPlugin;
 
@@ -17,10 +17,31 @@ impl Plugin for TerrainEditorVertexPlugin {
         .add_observer(select_vertex)
         .add_observer(deselect_vertex)
         .add_observer(deselect_all_vertices)
-        .add_systems(Update, vertex_transform_changed)
+        .add_systems(Update, vertex_changed)
         ;
     }
 }
+
+
+
+#[derive(Component, Reflect)]
+pub struct TerrainVertexController;
+
+pub fn terrain_vertex_controller() -> impl Bundle {
+    return (
+        TerrainVertexController,
+        actions!(
+            TerrainVertexController[
+                (
+                    Action::<DeselectAllVertices>::new(),
+                    Press::default(),
+                    bindings![MouseButton::Right]
+                )
+            ]
+        )
+    );
+}
+
 
 #[derive(Resource)]
 struct VertexRefs {
@@ -159,16 +180,17 @@ fn deselect_all_vertices(
 #[action_output(bool)]
 struct DeselectAllVertices;
 
-fn vertex_transform_changed(
-    mut vertices:   Query<(&mut PlaneVertex, &Transform), (With<SelectedVertex>, Changed<Transform>)>,
+fn vertex_changed(
+    mut vertices:   Query<&PlaneVertex, (With<SelectedVertex>, Changed<PlaneVertex>)>,
     plane_mesh3d:   Single<&Mesh3d, With<PlaneToEdit>>,
     mut meshes:     ResMut<Assets<Mesh>>
 ){
     let Some(plane_mesh) = meshes.get_mut(&plane_mesh3d.0) else {return;};
-    let (mut v_pos, _v_clr) = extract_mesh_data(plane_mesh);
-    for (mut plane_vertex, plane_transform) in vertices.iter_mut(){
-        plane_vertex.loc = plane_transform.translation.into();
+    let (mut v_pos, mut v_clr) = extract_mesh_data(plane_mesh);
+    for plane_vertex in vertices.iter_mut(){
         v_pos[plane_vertex.index] = plane_vertex.loc;
+        v_clr[plane_vertex.index] = plane_vertex.clr;
     }
     plane_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, v_pos);
+    plane_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, v_clr);
 }
