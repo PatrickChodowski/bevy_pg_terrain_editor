@@ -22,8 +22,6 @@ impl Plugin for TerrainEditorVertexPlugin {
     }
 }
 
-
-
 #[derive(Component, Reflect)]
 pub struct TerrainVertexController;
 
@@ -41,7 +39,6 @@ pub fn terrain_vertex_controller() -> impl Bundle {
         )
     );
 }
-
 
 #[derive(Resource)]
 struct VertexRefs {
@@ -65,7 +62,6 @@ fn init(
         }
     );
 }
-
 
 #[derive(Component, Copy, Clone)]
 pub struct PlaneVertex {
@@ -96,9 +92,7 @@ impl PlaneVertex {
 #[derive(Component)]
 pub struct SelectedVertex;
 
-
 pub fn extract_mesh_data(mesh: &Mesh) -> (Vec<[f32; 3]>, Vec<[f32; 4]>){
-
     let v_pos: Vec<[f32; 3]> = mesh.attribute(Mesh::ATTRIBUTE_POSITION).unwrap().as_float3().unwrap().to_vec();
     let mut v_clr: Vec<[f32; 4]> = Vec::new();
     if let Some(attr_vcolor) = mesh.attribute(Mesh::ATTRIBUTE_COLOR) {
@@ -108,16 +102,13 @@ pub fn extract_mesh_data(mesh: &Mesh) -> (Vec<[f32; 3]>, Vec<[f32; 4]>){
     } else {
         v_clr = vec![[1.0, 1.0, 1.0, 1.0]; v_pos.len()];
     }
-
     return (v_pos, v_clr);
-
 }
 
 #[derive(Event)]
 pub struct SpawnVertices{
     pub plane_entity: Entity
 }
-
 
 fn init_plane_to_edit(
     trigger:      On<SpawnVertices>,
@@ -126,14 +117,11 @@ fn init_plane_to_edit(
     meshes:       Res<Assets<Mesh>>,
     vertex_refs:  Res<VertexRefs>
 ){
-
     let Ok(mesh3d) = query.get(trigger.plane_entity) else {return;};
     let Some(mesh) = meshes.get(&mesh3d.0) else {return;};
     let (v_pos, v_clr) = extract_mesh_data(mesh);
     let mut vertices: Vec<Entity> = Vec::new();
-
     for (index, pos) in v_pos.iter().enumerate(){
-
         let entity = commands.spawn((
             vertex_refs.mat_handle.clone(),
             vertex_refs.mesh_handle.clone(),
@@ -142,13 +130,10 @@ fn init_plane_to_edit(
             Transform::from_translation(pos.clone().into()).with_scale(Vec3::splat(1.0)),
             PlaneVertex::new(index, pos, &v_clr[index], vertex_refs.radius, trigger.plane_entity),
         )).id();
-
         vertices.push(entity);
     }
-
     commands.entity(trigger.plane_entity).add_children(&vertices);
 }
-
 
 fn select_vertex(
     trigger:       On<Add, SelectedVertex>,
