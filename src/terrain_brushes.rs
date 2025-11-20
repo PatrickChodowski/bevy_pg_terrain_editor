@@ -96,8 +96,16 @@ impl BrushType for TerrainHeightBrush {
 
 #[derive(Clone)]
 pub struct TerrainColorBrush {
-    pub color: [f32;4]
+    pub typ: ColorBrushType
 }
+
+#[derive(Clone)]
+pub enum ColorBrushType {
+    Value{clr: [f32;4]},
+    Range{min: f32, max: f32, min_clr: [f32;4], max_clr: [f32;4]},
+    Noise{data: Vec<Noise>, value: f32, clr: [f32;4]}
+}
+
 
 impl BrushType for TerrainColorBrush {
     fn apply(&mut self, world: &mut World, loc: Vec3, radius: f32) {
@@ -112,9 +120,33 @@ impl BrushType for TerrainColorBrush {
             let global_loc = global_transform.translation();
             let near: bool = global_loc.xz().distance(loc.xz()) <= (radius + plane_vertex.radius);
 
-            if (global_loc.xz().distance(loc.xz()) <= radius + plane_vertex.radius) & maybe_selected.is_none() {
+            if near & maybe_selected.is_none() {
                 commands.entity(vertex_entity).insert(SelectedVertex);
-                plane_vertex.clr = self.color;
+                match &self.typ {
+                    ColorBrushType::Value{clr} => {plane_vertex.clr = *clr;}
+                    ColorBrushType::Noise { data, value, clr} => {
+
+                        let mut combined_noise: f32 = 0.0;
+                        for noise in data.iter(){
+                            let noise_value = noise.apply(global_loc);
+                            combined_noise += noise_value;
+                        }
+                        let alpha: f32 = combined_noise*value;
+                        plane_vertex.clr = [clr[0], clr[1], clr[2], alpha.clamp(0.0, 1.0)];
+                    }
+                    ColorBrushType::Range { min, max, min_clr, max_clr } => {
+                        if &global_loc.y >= min && &global_loc.y <= max {
+                            let norm_y = (global_loc.y - min)/(max-min);
+                            let interpolated_clr = [
+                                min_clr[0] + (max_clr[0] - min_clr[0]) * norm_y,
+                                min_clr[1] + (max_clr[1] - min_clr[1]) * norm_y,
+                                min_clr[2] + (max_clr[2] - min_clr[2]) * norm_y,
+                                min_clr[3] + (max_clr[3] - min_clr[3]) * norm_y,
+                            ];
+                            plane_vertex.clr = interpolated_clr;
+                        }
+                    }
+                }
             } else if  near & maybe_selected.is_some() {
 
             } else {

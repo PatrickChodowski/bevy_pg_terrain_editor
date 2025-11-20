@@ -1,4 +1,5 @@
 
+use bevy::input::common_conditions::input_just_pressed;
 use bevy::{color::palettes::css::WHITE, prelude::*};
 use bevy::picking::pointer::PointerId;
 use bevy::picking::hover::HoverMap;
@@ -6,7 +7,7 @@ use bevy::window::PrimaryWindow;
 use bevy_enhanced_input::prelude::*;
 use bevy_pg_editor_tools::prelude::{WorldPos, PGEditorToolsPlugin, PGEditorBrushSelectPlugin, BrushSelectController, BrushSettings, brush_select_controller};
 use bevy_pg_terrain_editor_tools::noises::Noise;
-use bevy_pg_terrain_editor_tools::prelude::{HeightBrushType, PlaneToEdit, SpawnVertices, 
+use bevy_pg_terrain_editor_tools::prelude::{HeightBrushType, ColorBrushType, PlaneToEdit, SpawnVertices, 
     TerrainColorBrush, TerrainEditorVertexPlugin, TerrainHeightBrush, 
     TerrainVertexController, plane_mesh, terrain_vertex_controller
 };
@@ -23,8 +24,18 @@ fn main() {
         .add_plugins(PGEditorBrushSelectPlugin)
         .add_systems(Startup, init)
         .add_systems(Update, hover_plane)
+        .add_systems(Update, switch.run_if(input_just_pressed(KeyCode::KeyS)))
         .run();
+
 }
+
+#[derive(Resource)]
+pub enum CurrentBrush {
+    HeightsValue,
+    HeightsNoise,
+    Color
+}
+
 
 fn init(
     mut commands:      Commands,
@@ -35,8 +46,10 @@ fn init(
 
     brushsettings.radius = 1.0;
     brushsettings.typ = Box::new(TerrainHeightBrush{typ: HeightBrushType::Value(1.0), reselection: true});
-    brushsettings.typ = Box::new(TerrainColorBrush{color: [0.5, 0.5, 0.8, 1.0]});
-    brushsettings.typ = Box::new(TerrainHeightBrush{typ: HeightBrushType::Noise((vec![Noise::new()], 1.0)), reselection: true});
+    commands.insert_resource(CurrentBrush::HeightsValue);
+    // brushsettings.typ = Box::new(TerrainColorBrush{color: [0.5, 0.5, 0.8, 1.0]});
+    // brushsettings.typ = Box::new(TerrainColorBrush{typ: ColorBrushType::Range { min: 0.0, max: 5.0, min_clr: [0.0, 0.0, 0.0, 1.0], max_clr:[1.0, 1.0, 1.0, 1.0] }});
+    // brushsettings.typ = Box::new(TerrainHeightBrush{typ: HeightBrushType::Noise((vec![Noise::new()], 1.0)), reselection: true});
 
     commands.spawn((
         brush_select_controller(),
@@ -61,7 +74,28 @@ fn init(
     commands.trigger(SpawnVertices{plane_entity});
 }
 
-
+fn switch(
+    mut brushsettings: ResMut<BrushSettings>,
+    mut current_brush: ResMut<CurrentBrush>
+){
+    match *current_brush {
+        CurrentBrush::HeightsValue => {
+            *current_brush = CurrentBrush::HeightsNoise;
+            brushsettings.typ = Box::new(TerrainHeightBrush{typ: HeightBrushType::Noise((vec![Noise::new()], 1.0)), reselection: true});
+            info!("changed to height noise");
+        }
+        CurrentBrush::HeightsNoise => {
+            *current_brush = CurrentBrush::Color;
+            brushsettings.typ = Box::new(TerrainColorBrush{typ: ColorBrushType::Range { min: -5.0, max: 5.0, min_clr: [0.0, 0.0, 0.0, 1.0], max_clr:[1.0, 1.0, 1.0, 1.0] }});
+            info!("changed to color range");
+        }
+        CurrentBrush::Color => {
+            *current_brush = CurrentBrush::HeightsValue;
+            brushsettings.typ = Box::new(TerrainHeightBrush{typ: HeightBrushType::Value(1.0), reselection: true});
+            info!("changed to height value");
+        }
+    }
+}
 
 fn hover_plane(
     hovermap:           Res<HoverMap>,
