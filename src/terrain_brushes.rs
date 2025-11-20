@@ -77,7 +77,17 @@ impl BrushType for TerrainHeightBrush {
         }
         system_state.apply(world);
     }
-    fn done(&mut self, world: &mut World) {}
+    fn done(&mut self, world: &mut World) {
+        let mut system_state: SystemState<(
+            Commands,
+            Query<Entity, With<SelectedVertex>>
+        )> = SystemState::new(world);
+        let (mut commands, plane_vertices) = system_state.get_mut(world);
+        for entity in plane_vertices.iter(){
+            commands.entity(entity).remove::<SelectedVertex>();
+        }
+        system_state.apply(world);
+    }
     fn started(&mut self, world: &mut World) {}
 }
 
@@ -110,6 +120,18 @@ impl BrushType for TerrainColorBrush {
         }
         system_state.apply(world);
     }
-    fn done(&mut self, world: &mut World) {}
+    fn done(&mut self, world: &mut World) {
+
+        let mut system_state: SystemState<(
+            Commands,
+            Query<Entity, With<SelectedVertex>>
+        )> = SystemState::new(world);
+        let (mut commands, plane_vertices) = system_state.get_mut(world);
+        for entity in plane_vertices.iter(){
+            commands.entity(entity).remove::<SelectedVertex>();
+        }
+        system_state.apply(world);
+
+    }
     fn started(&mut self, world: &mut World) {}
 }
