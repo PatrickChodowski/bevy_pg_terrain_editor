@@ -25,7 +25,9 @@ impl Plugin for TerrainEditorVertexPlugin {
     fn build(&self, app: &mut App) {
         app
         .add_systems(Startup, init)
-        .insert_resource(VertexSettings::new(self.vertex_radius))
+        .insert_resource(VertexPluginSettings::new(
+            self.vertex_radius
+        ))
         .add_observer(init_plane_to_edit)
         .add_observer(on_remove_plane)
         .add_observer(select_vertex)
@@ -85,12 +87,12 @@ pub fn terrain_vertex_controller() -> impl Bundle {
 }
 
 #[derive(Resource)]
-struct VertexSettings {
+struct VertexPluginSettings {
     radius: f32
 }
-impl VertexSettings {
+impl VertexPluginSettings {
     fn new(radius: f32) -> Self {
-        VertexSettings{radius}
+        VertexPluginSettings{radius}
     }
 }
 
@@ -106,12 +108,12 @@ fn init(
     mut commands:   Commands,
     mut meshes:     ResMut<Assets<Mesh>>,
     mut materials:  ResMut<Assets<StandardMaterial>>,
-    vertex_settings:    Res<VertexSettings>
+    vertex_plugin_settings:    Res<VertexPluginSettings>
 ){
     commands.insert_resource(
         VertexRefs{
-            radius: vertex_settings.radius,
-            mesh_handle: Mesh3d(meshes.add(Sphere{radius: vertex_settings.radius, ..default()})),
+            radius: vertex_plugin_settings.radius,
+            mesh_handle: Mesh3d(meshes.add(Sphere{radius: vertex_plugin_settings.radius, ..default()})),
             mat_handle: MeshMaterial3d(materials.add(Color::BLACK.with_alpha(0.85))),
             selected_mat_handle: MeshMaterial3d(materials.add(Color::from(ORANGE_RED).with_alpha(0.85)))
         }

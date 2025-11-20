@@ -34,9 +34,9 @@ fn init(
 ){
 
     brushsettings.radius = 1.0;
-    brushsettings.typ = Box::new(TerrainHeightBrush{typ: HeightBrushType::Value(1.0)});
+    brushsettings.typ = Box::new(TerrainHeightBrush{typ: HeightBrushType::Value(1.0), reselection: true});
     brushsettings.typ = Box::new(TerrainColorBrush{color: [0.5, 0.5, 0.8, 1.0]});
-    brushsettings.typ = Box::new(TerrainHeightBrush{typ: HeightBrushType::Noise((vec![Noise::new()], 1.0))});
+    brushsettings.typ = Box::new(TerrainHeightBrush{typ: HeightBrushType::Noise((vec![Noise::new()], 1.0)), reselection: true});
 
     commands.spawn((
         brush_select_controller(),

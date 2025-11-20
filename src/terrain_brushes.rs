@@ -25,7 +25,8 @@ pub enum HeightBrushType {
 
 #[derive(Clone)]
 pub struct TerrainHeightBrush {
-    pub typ: HeightBrushType 
+    pub typ: HeightBrushType,
+    pub reselection: bool
 }
 
 impl BrushType for TerrainHeightBrush {
@@ -72,7 +73,9 @@ impl BrushType for TerrainHeightBrush {
             } else if  near & maybe_selected.is_some() {
 
             } else {
-                // commands.entity(vertex_entity).remove::<SelectedVertex>();
+                if self.reselection {
+                    commands.entity(vertex_entity).remove::<SelectedVertex>();
+                }
             }
         }
         system_state.apply(world);
