@@ -18,7 +18,7 @@ fn main() {
         .add_input_context::<BrushSelectController>()
         .add_input_context::<TerrainVertexController>()
         .insert_resource(AmbientLight{color: Color::from(WHITE), brightness: 900.0, ..default()})
-        .add_plugins(TerrainEditorVertexPlugin)
+        .add_plugins(TerrainEditorVertexPlugin::new(1.0))
         .add_plugins(PGEditorToolsPlugin)
         .add_plugins(PGEditorBrushSelectPlugin)
         .add_systems(Startup, init)

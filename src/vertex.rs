@@ -13,6 +13,14 @@ pub struct TerrainEditorVertexPlugin {
     pub vertex_radius: f32
 }
 
+impl TerrainEditorVertexPlugin {
+    pub fn new(vertex_radius: f32) -> Self {
+        TerrainEditorVertexPlugin {
+            vertex_radius
+        }
+    }
+}
+
 impl Plugin for TerrainEditorVertexPlugin {
     fn build(&self, app: &mut App) {
         app

@@ -30,13 +30,19 @@ pub struct TerrainHeightBrush {
 
 impl BrushType for TerrainHeightBrush {
     fn apply(&mut self, world: &mut World, loc: Vec3, radius: f32) {
+
         let mut system_state: SystemState<(
             Commands,
             Query<(Entity, &mut PlaneVertex, &mut Transform, &GlobalTransform, Option<&SelectedVertex>)>
         )> = SystemState::new(world);
         let (mut commands, mut plane_vertices) = system_state.get_mut(world);
+
         for (vertex_entity, mut plane_vertex, mut vertex_transform, global_transform, maybe_selected) in plane_vertices.iter_mut(){
-            if (vertex_transform.translation.xz().distance(loc.xz()) <= radius + plane_vertex.radius) & maybe_selected.is_none() {
+
+            let global_loc = global_transform.translation();
+            let near: bool = global_loc.xz().distance(loc.xz()) <= (radius + plane_vertex.radius);
+
+            if near & maybe_selected.is_none() {
                 commands.entity(vertex_entity).insert(SelectedVertex);
 
                 match &self.typ {
@@ -52,7 +58,6 @@ impl BrushType for TerrainHeightBrush {
                         }
                     }
                     HeightBrushType::Noise(noises) => {
-                        let global_loc = global_transform.translation();
                         let mut combined_noise: f32 = 0.0;
                         for noise in noises.0.iter(){
                             let noise_value = noise.apply(global_loc);
@@ -64,7 +69,7 @@ impl BrushType for TerrainHeightBrush {
                 }
 
                 plane_vertex.loc = vertex_transform.translation.into();
-            } else if  (vertex_transform.translation.xz().distance(loc.xz()) <= radius + plane_vertex.radius) & maybe_selected.is_some() {
+            } else if  near & maybe_selected.is_some() {
 
             } else {
                 // commands.entity(vertex_entity).remove::<SelectedVertex>();
@@ -85,14 +90,19 @@ impl BrushType for TerrainColorBrush {
     fn apply(&mut self, world: &mut World, loc: Vec3, radius: f32) {
         let mut system_state: SystemState<(
             Commands,
-            Query<(Entity, &mut PlaneVertex, &Transform, Option<&SelectedVertex>)>
+            Query<(Entity, &mut PlaneVertex, &GlobalTransform, Option<&SelectedVertex>)>
         )> = SystemState::new(world);
         let (mut commands, mut plane_vertices) = system_state.get_mut(world);
-        for (vertex_entity, mut plane_vertex, vertex_transform, maybe_selected) in plane_vertices.iter_mut(){
-            if (vertex_transform.translation.xz().distance(loc.xz()) <= radius + plane_vertex.radius) & maybe_selected.is_none() {
+
+        for (vertex_entity, mut plane_vertex, global_transform, maybe_selected) in plane_vertices.iter_mut(){
+
+            let global_loc = global_transform.translation();
+            let near: bool = global_loc.xz().distance(loc.xz()) <= (radius + plane_vertex.radius);
+
+            if (global_loc.xz().distance(loc.xz()) <= radius + plane_vertex.radius) & maybe_selected.is_none() {
                 commands.entity(vertex_entity).insert(SelectedVertex);
                 plane_vertex.clr = self.color;
-            } else if  (vertex_transform.translation.xz().distance(loc.xz()) <= radius + plane_vertex.radius) & maybe_selected.is_some() {
+            } else if  near & maybe_selected.is_some() {
 
             } else {
                 commands.entity(vertex_entity).remove::<SelectedVertex>();
